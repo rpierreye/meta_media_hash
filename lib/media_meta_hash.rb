@@ -97,7 +97,7 @@ module MediaMetaHash
   end
 
   def self.article_hash url, opts
-    { :og => { :url => url }.merge!(opts), :twitter => {}.merge!(opts) }
+    { :og => { :url => url }.merge!(opts), :twitter => { :card => "summary" }.merge!(opts) }
   end
 
   private

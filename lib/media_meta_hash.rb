@@ -2,15 +2,23 @@ require "media_meta_hash/version"
 require "video_info"
 require 'ostruct'
 
+class VideoInfo
+  def to_hash
+    hash = {}
+    instance_variables.each {|var| hash[var.to_s.delete("@").to_sym] = instance_variable_get(var) }
+    hash
+  end
+end
+
 module MediaMetaHash
   HASH_TYPE = Hash.new(:article)
   
 
-  def self.for url, media_type = :video, opts = {}
+  def self.for(url, media_type = :video, opts = {})
     self.media_meta_hash(media_type, url, opts)
   end
 
-  def self.video_info url
+  def self.video_info(url)
     if url =~ /video\.fox(news|business)\.com\/v\/(\d*)\/.*/
       partial_domain = $1
       id = $2
@@ -48,10 +56,15 @@ module MediaMetaHash
         :height => (480 * 0.5625).to_i
       )
     else
-      info = VideoInfo.get(url)
+      begin
+        info = VideoInfo.get(url)
+      rescue VideoInfo::UrlError => e
+        info = nil
+      end
 
       if url =~ /(youtube.com|youtu.be)/ && info
         class << info
+          attr_accessor :width, :height
           def og_url=(val)
             @url = val
           end
@@ -60,6 +73,7 @@ module MediaMetaHash
             @url
           end
         end
+
         info.og_url = self.get_video_src info.video_id
         info.width = 480 if info.width == nil
         info.height = (480 * 0.5625).to_i if info.height == nil
@@ -68,27 +82,21 @@ module MediaMetaHash
     end
   end
 
-  def self.video_hash url, opts
+  def self.video_hash(url, opts)
     video = self.video_info(url)
 
     if video
-      common = { :title => video.title,
-                 :description => video.description,
-                 :image => video.thumbnail_medium
-               }
-
       { :og => { :video => [video.og_url || video.embed_url, 
                         {:height => video.height,
                           :width => video.width }],
-                 :type => "video"
-                }.merge!(common).merge!(opts),
+                 :type => "video" }.merge!(opts),
 
-        :twitter => { :player => [video.embed_url.sub("http://", "https://"),
+        :twitter => { :player => [(video.embed_url || video.og_url).sub("http://", "https://"),
                                   { :width => video.width,
                                     :height => video.height
                                   }],
                       :card => "player"
-                    }.merge!(common).merge!(self.twitter_mobile(video.provider.downcase.to_sym, video.video_id)).merge!(opts)
+                    }.merge!(self.twitter_mobile(video.provider.downcase.to_sym, video.video_id)).merge!(opts)
       }
     else 
       {}.merge!(opts)
@@ -110,7 +118,7 @@ module MediaMetaHash
     "http://www.youtube.com/v/#{id}?autohide=1&version=3"
   end
 
-  def self.media_meta_hash media_type, url, opts = {}
+  def self.media_meta_hash(media_type, url, opts = {})
     if media_type == :video
       self.video_hash(url, opts)
     else
@@ -118,7 +126,7 @@ module MediaMetaHash
     end
   end
 
-  def self.twitter_mobile provider, id
+  def self.twitter_mobile(provider, id)
     tags_for = Hash.new({})
     tags_for[:youtube] = {
       :app => { :name => { :iphone => "YouTube",

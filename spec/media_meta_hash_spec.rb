@@ -112,11 +112,11 @@ describe MediaMetaHash do
       end
 
       it "the :og key" do
-        @info_hash[:og].should include(:title, :description, :image, :type, :video)
+        @info_hash[:og].should include(:type, :video)
       end
 
       it "the :twitter key" do
-        @info_hash[:twitter].should include(:title, :description, :image, :player, :card, :app)
+        @info_hash[:twitter].should include(:player, :card, :app)
       end
 
       it "the :twitter => :player should be an array" do
